@@ -2434,14 +2434,34 @@ DOM.menuDownload.onclick = async () => {
     }
 
     // FETCH SONG
-    const response = await fetch(song.src);
+const response = await fetch(song.src, {
+  mode: "cors",
+  cache: "no-cache"
+});
 
-    if (!response.ok) {
-      throw new Error("Download failed");
-    }
+if (!response.ok) {
+  throw new Error(
+    "Server blocked download or file unavailable"
+  );
+}
 
-    // CONVERT TO BLOB
-    const blob = await response.blob();
+// validate content
+const contentType =
+  response.headers.get("content-type") || "";
+
+if (
+  !contentType.includes("audio") &&
+  !contentType.includes("mpeg")
+) {
+  throw new Error("Invalid audio response");
+}
+
+// CONVERT TO BLOB
+const blob = await response.blob();
+
+if (!blob || blob.size === 0) {
+  throw new Error("Empty download");
+}
 
     // SAVE TO INDEXEDDB
     await saveSongToDB({
