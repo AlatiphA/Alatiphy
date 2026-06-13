@@ -369,6 +369,8 @@ function loadDurations() {
   scanNext();
 }
 
+/* ===== UPDATE DURATION ===== */
+
 function updateSingleDuration(index, duration) {
 
   const el = DOM.list.querySelector(
@@ -380,6 +382,7 @@ function updateSingleDuration(index, duration) {
   }
 }
 
+/* ===== SAVE DURATIONS ===== */
 function saveDurations() {
   try {
     localStorage.setItem(
@@ -393,9 +396,6 @@ function saveDurations() {
     console.log("Duration save failed", e);
   }
 }
-
-
-
 
 
 // =======================
@@ -462,8 +462,8 @@ function openDatabase() {
   });
 }
 
-
-  // SAVE SONG
+/* ===== SAVE SONG ===== */
+  
 function saveSongToDB(songData) {
 
   return new Promise((resolve, reject) => {
@@ -502,7 +502,8 @@ function saveSongToDB(songData) {
   });
 }
 
-// GET SONG
+/* ===== GET SONGS ===== */
+  
 function getSongFromDB(id) {
 
   return new Promise((resolve, reject) => {
@@ -579,16 +580,13 @@ function getAllDownloadedSongs() {
     }
   });
 }
-  
-  
-
-
 
 
 // =======================
 // LOGIC
 // =======================
 
+/* ===== SCHEDULE RENDER ===== */
 function scheduleRender() {
 
   if (STATE.renderTimer) return;
@@ -599,7 +597,7 @@ function scheduleRender() {
   });
 }
 
-
+/* ===== LOAD SONG ===== */
 async function loadSong() {
 
   const song = STATE.songs[STATE.currentIndex];
@@ -651,7 +649,7 @@ async function loadSong() {
   }
 }
 
-
+/* ===== PLAY SONG ===== */
 function playSong() {
 
   DOM.audio.play()
@@ -685,6 +683,7 @@ function playSong() {
     });
 }
 
+/* ===== PLAY SONG ===== */
 function pauseSong(){
 
   DOM.audio.pause();
@@ -699,6 +698,7 @@ function pauseSong(){
   DOM.cover.classList.remove("playing");
 }
 
+/* ===== NEXT SONG ===== */
 function nextSong(){
   STATE.currentIndex =
     (STATE.currentIndex + 1) % STATE.songs.length;
@@ -708,6 +708,7 @@ function nextSong(){
   playSong();
 }
 
+/* ===== PREVIOUS SONG ===== */
 function prevSong(){
   STATE.currentIndex =
     (STATE.currentIndex - 1 + STATE.songs.length) % STATE.songs.length;
@@ -717,6 +718,7 @@ function prevSong(){
   playSong();
 }
 
+/* ===== UPDATE REPEAT BUTTON ===== */
 function updateRepeatButton() {
 
   DOM.repeatBtn.classList.remove("active");
@@ -736,6 +738,7 @@ function updateRepeatButton() {
   }
 }
 
+/* ===== PRELOAD NEXT TRACK ===== */
 function preloadNextTrack() {
 
   const nextIndex = getNextIndex("next");
@@ -759,15 +762,17 @@ function preloadNextTrack() {
     .catch(() => {});
 }
 
-
+/* ===== SAVE STATE ===== */
 function saveState(){
   localStorage.setItem("index", STATE.currentIndex);
 }
 
+/* ===== SAVE PLAYLIST STATE ===== */
 function savePlaybackState(isPlaying) {
   localStorage.setItem("isPlaying", isPlaying);
 }
 
+/* ===== RENDER LIST ===== */
 function renderList(filter=""){
 
   DOM.list.innerHTML = "";
@@ -780,8 +785,8 @@ function renderList(filter=""){
     const i = item.index;
 
     const hasFilter = filter.trim() !== "";
-const isMatch = song.title.toLowerCase().includes(filter.toLowerCase());
-const isCurrent = i === STATE.currentIndex;
+    const isMatch = song.title.toLowerCase().includes(filter.toLowerCase());
+    const isCurrent = i === STATE.currentIndex;
 
 // Only filter when user is actually searching
 if (hasFilter && !isMatch && !isCurrent) return;
@@ -813,7 +818,6 @@ div.innerHTML = `
     </button>
   </div>
 `;
-
 
     // play
     div.onclick = (e) => {
@@ -858,6 +862,7 @@ div.innerHTML = `
 
 }
 
+/* ===== UPDATE MARQUEE ===== */
 function updateMarquee() {
 
   const span = DOM.title.querySelector("span");
@@ -901,6 +906,7 @@ span.style.animationDuration = duration + "s";
   }, 50); // small delay is key
 }
 
+/* ===== UPDATE TIME ===== */
 function updateTime(){
   if(!DOM.audio.duration) return;
 
@@ -915,6 +921,7 @@ function updateTime(){
     formatTime(DOM.audio.duration);
 }
 
+/* ===== FORMAT TIME ===== */
 function formatTime(s) {
 
   if (
@@ -1021,6 +1028,9 @@ function switchView(view) {
   updateActiveTab();
 }
 
+/* =========================
+   RENDER DOWNLOADS
+========================= */
 
 async function renderDownloads() {
 
@@ -1127,6 +1137,11 @@ async function renderDownloads() {
       </div>`;
   }
 }
+  
+
+/* =========================
+   ABOUT
+========================= */
 
 function showAbout() {
 
@@ -1134,10 +1149,14 @@ function showAbout() {
     <div style="padding:15px; line-height:1.6;">
       <h3>AlatiphA Music</h3>
       <p>With AlatiphA, it’s easy to listen to tailored online and offline music on your phone, your computer, your tablet and more.</p>
-      <p>Version: v1 Beta 1</p>
+      <p>Version: v1 Beta 2</p>
     </div>
   `;
 }
+
+/* =========================
+   NAVIGATION 
+========================= */
 
 /* 🔥 SOURCE OF TRUTH FOR NAVIGATION */
 function getNextIndex(direction = "next") {
@@ -1294,7 +1313,7 @@ function highlightActiveTrack() {
   }
 }
 
-
+/* ===== DEBOUNCE ===== */
 function debounce(fn, delay = 200) {
   let timer;
 
@@ -1344,7 +1363,6 @@ async function loadDownloadedSongsMap() {
     console.error("Failed loading download map", err);
   }
 }
-
 
 
 // =======================
@@ -1453,9 +1471,6 @@ highlightActiveTrack();
     }
   }
 }
-
-
-
 
 
 // =======================
@@ -1869,11 +1884,7 @@ DOM.menuShare.onclick = async () => {
   DOM.menuPopup.style.display = "none";
 };
 
-
-
-
-
-
+  
 // =======================
 // INIT
 // =======================
