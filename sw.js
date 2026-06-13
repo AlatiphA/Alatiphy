@@ -1,4 +1,4 @@
-const CACHE_NAME = "alatipha-music-v2";
+const CACHE_NAME = "alatipha-music-v3";
 const SONG_CACHE = "alatipha-songs-v1";
 
 /* ====================
@@ -7,6 +7,7 @@ const SONG_CACHE = "alatipha-songs-v1";
 const ASSETS = [
   "./",
   "./index.html",
+  "./style.css",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
