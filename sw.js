@@ -7,7 +7,7 @@
    get a "New version available" prompt on next visit.
 ===================================================== */
 
-const APP_VERSION = "v2.1";
+const APP_VERSION = "v2.3";
 const SONG_CACHE = "v1.0";
 
 const SONG_CACHE = `alatipha-music-beta-${APP_VERSION}`;
