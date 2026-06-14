@@ -1,4 +1,4 @@
-const CACHE_NAME = "alatipha-music-beta-v8";
+const CACHE_NAME = "alatipha-music-beta-v9";
 const SONG_CACHE = "alatipha-songs-beta-v1";
 
 /* ====================
