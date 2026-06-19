@@ -405,7 +405,7 @@
   background: var(--player-bg);
   backdrop-filter: blur(22px);
   border-top: 1px solid var(--border);
-  padding: 8px 14px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
