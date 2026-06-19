@@ -7,7 +7,7 @@
    get a "New version available" prompt on next visit.
 ===================================================== */
 
-const APP_VERSION = "v3.2";
+const APP_VERSION = "v3.3";
 const SONG_CACHE = "v1.0";
 
 const SONG_CACHE = `alatiphy-music-pwa-${APP_VERSION}`;
