@@ -1,4 +1,4 @@
-# Alatiphy - Music Player 
+# Alatiphy - AlatiphA Music
 
 A progressive web app (PWA) music player for streaming and offline listening to AlatiphA's original tracks — built with vanilla HTML, CSS, and JavaScript, hosted on GitHub Pages.
 
