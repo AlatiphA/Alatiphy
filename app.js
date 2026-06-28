@@ -1320,7 +1320,7 @@ function showAbout() {
     <div style="padding:15px; line-height:1.6;">
       <section class="about-content">
 
-        <h1>Alatiphy - Music Player</h1>
+        <h1>Alatiphy - AlatiphA Music</h1>
 
         <p>Alatiphy is a progressive web app (PWA) music player for streaming and offline listening to AlatiphA's original tracks.</p>
         <p>With Alatiphy, it's easy to listen to tailored online and offline music on your phone, your computer, your tablet and many more devices.</p>
