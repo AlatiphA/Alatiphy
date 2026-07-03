@@ -350,9 +350,27 @@ const songs = [
    title: "Unholy Alliance - AlatiphA", 
    src: "https://archive.org/download/beyond-the-headlines-nyaba-diaries-alatiph-a_202606/Unholy%20Alliance%20-%20AlatiphA.mp3", 
    tags: ["rap", "recentlyadded"]
+}, 
+
+{ 
+   title: "Stupid - AlatiphA", 
+   src: "https://archive.org/download/tears-in-the-rain-alatiph-a-mp-3-160-k/Stupid%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rap", "recentlyadded"]
+},
+
+{ 
+   title: "Tears in the Rain - AlatiphA", 
+   src: "https://archive.org/download/tears-in-the-rain-alatiph-a-mp-3-160-k/Tears%20in%20the%20Rain%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rnb", "recentlyadded"]
+},  
+
+{
+   title: "The Elite - AlatiphA", 
+   src: "https://archive.org/download/the-elite-alatiph-a-mp-3-160-k/The%20Elite%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rap", "recentlyadded"]
 }
 
-  ];
+];
 
 
 
@@ -390,7 +408,7 @@ lastVolume: parseFloat(localStorage.getItem("volume")) || 1,
 
 /* ====== DURATION_KEY - Change if songs change ====== */
 
-const DURATION_KEY = "alatiphy_beta_durations_v1";
+const DURATION_KEY = "alatiphy_beta_durations_v2";
 
 try {
   const cached = JSON.parse(localStorage.getItem(DURATION_KEY));
