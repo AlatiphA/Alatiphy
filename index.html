@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>Alatiphy</title>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
+
+<!-- Android -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#956433">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- iPhone -->
+<meta name="apple-mobile-web-app-capable"
+content="yes">
+
+<meta name="apple-mobile-web-app-status-bar-style"
+content="black-translucent">
+
+
+  <link rel="preload"
+        as="image"
+        href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi0_lQRpa_X50T-4zAAYHZUqeUjqDb-JkeOgmg31u_2Apnsut3Nfe_zrvW1rqOq7aKxEjzgxcv2ndc7CC-Jo_9O0pbmva3vn8N0xqiscfAah_frGjHgAsiSpwJSqnV976_5FtENJDnyuIcSEpW0T-LBQctvRczjy54IvEGCb86MXy2_CVCZphGwj2NjV6uc/s500/AlatiphA_Music_Animation.png">
+
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Hide UI until app.js marks it ready */
+  body:not(.app-ready) .app,
+  body:not(.app-ready) .player { visibility: hidden; }
+</style>
+
+<script>
+  // Apply saved theme immediately to avoid flash of wrong theme
+  (function() {
+    var mode = localStorage.getItem("alatipha_theme") || "auto";
+    var isDark = mode === "dark" ||
+      (mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (isDark) document.documentElement.classList.add("theme-dark-pending");
+  })();
+</script>
+
+</head>
+<body>
+<div id="menu-overlay" class="menu-overlay"></div>
+
+<div id="side-menu" class="side-menu">
+  <div class="menu-content">
+
+    <h3>Alatiphy</h3>
+
+    <button class="menu-item" data-view="home">Home</button>
+    <button class="menu-item" data-view="favorites">Favorites</button>
+    <button class="menu-item" data-view="downloads">Downloads</button>
+    <button class="menu-item" data-view="about">About</button>
+
+    <div class="theme-switcher">
+      <span class="theme-label">Theme</span>
+      <div class="theme-options">
+        <button class="theme-btn" data-theme="auto" title="Auto"><i class="fas fa-circle-half-stroke"></i></button>
+        <button class="theme-btn" data-theme="light" title="Light"><i class="fas fa-sun"></i></button>
+        <button class="theme-btn" data-theme="dark" title="Dark"><i class="fas fa-moon"></i></button>
+      </div>
+    </div>
+
+    <div class="clear-data-section">
+      <button class="clear-data-btn" id="clear-data-btn">
+        <i class="fas fa-trash"></i> Clear Data
+      </button>
+    </div>
+
+  </div>
+
+
+<!-- MOMO SUPPORT -->
+  <div class="momoSection">
+
+    <div class="momoTitle">
+      <i class="fa-solid fa-heart"></i> Support AlatiphA
+    </div>
+
+    <p class="momoDesc">
+      Built with love. Consider buying me a tip.
+    </p>
+
+    <div class="momoCard">
+
+      <div class="momoCardLeft">
+        <div class="momoNetwork">
+          <i class="fa-solid fa-mobile-screen-button"></i> MTN MoMo
+        </div>
+        <div class="momoNumber">0243443688</div>
+        <div class="momoName">Name: Abdul-Latif Ahmed</div>
+      </div>
+
+      <button class="momoCopyBtn" id="momoCopyBtn" onclick="
+        navigator.clipboard.writeText('0243443688').then(function() {
+          var btn = document.getElementById('momoCopyBtn');
+          btn.textContent = 'Copied!';
+          setTimeout(function() { btn.textContent = 'Copy Number'; }, 2000);
+        });
+      ">
+        Copy Number
+      </button>
+
+    </div>
+
+  </div>
+
+<!-- ABOUT - change version -->
+
+  <div class="aboutSection">
+    <img
+      src="icon-192.png"
+      alt="Alatiphy Icon"
+      class="aboutIcon"
+    >
+    <div class="aboutText">
+      <strong>Alatiphy β - AlatiphA Music</strong><br>
+      ©️ 2026 | All Rights Reserved | <span id="appVersion">v5.8</span><br>
+      Developed by Abdul-Latif Ahmed [AlatiphA]<br>
+      <a href="faq.html" style="color:var(--accent);text-decoration:none;">
+        <i class="fa-solid fa-circle-question"></i> FAQ
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="app-header">
+    <h2>
+    <i id="menu-toggle" class="fas fa-bars"></i>
+    Alatiphy
+  </h2>
+
+    <div class="search-container">
+      <input type="text" id="search" placeholder="Search music...">
+      <button id="clear-search" class="clear-btn"><i class="fas fa-times"></i></button>
+    </div>
+
+  <div class="filter-tabs">
+
+  <button class="tab-btn active"
+  data-playlist="all">
+  All Songs
+  </button>
+
+  <button class="tab-btn"
+  data-playlist="recentlyadded">
+  Recently Added 
+  </button>
+
+  <button class="tab-btn"
+  data-playlist="rap">
+  Rap
+  </button>
+
+  <button class="tab-btn"
+  data-playlist="rnb">
+  R&B
+  </button>
+
+  <button class="tab-btn"
+  data-playlist="remix">
+  Remix
+  </button>
+
+  <button class="tab-btn"
+  data-playlist="afrobeats">
+  Afrobeats
+  </button>
+
+  <button id="tab-favorites"
+  class="tab-btn">
+  <i class="fas fa-heart"></i>
+  Favorites
+  </button>
+
+  </div>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<div class="player">
+  <img id="cover" src="" alt="cover" />
+  
+  <div class="info">
+    <div id="title">No song selected</div>
+    <div id="time">0:00 / 0:00</div>
+    <div class="bar" id="bar">
+      <div id="progress"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+      <button id="shuffle"><i class="fas fa-random"></i></button>
+      
+    <button id="prev"><i class="fas fa-backward"></i></button>
+    <button id="play" class="play-btn"><i class="fas fa-play"></i></button>
+    <button id="next"><i class="fas fa-forward"></i></button>
+
+    <button id="repeat"><i class="fas fa-redo"></i></button>
+    <input id="volume" type="range" min="0" max="1" step="0.01" value="1">
+    <button id="mute"><i class="fas fa-volume-up"></i></button>
+    <button id="menu-btn"><i class="fas fa-ellipsis-v"></i></button>
+      <button id="collapse-btn"><i class="fas fa-chevron-down"></i></button>
+  </div>
+
+    <div id="menu" class="menu-popup">
+    <button id="menu-download"><i class="fas fa-download"></i> Download</button>
+    <button id="menu-share"><i class="fas fa-share-alt"></i> Share</button>
+  </div>
+
+  <audio id="audio" preload="metadata"></audio>
+</div>
+
+
+<script src="app.js" defer></script>
+<script src="install.js" defer></script>
+
+</body>  
+</html>
