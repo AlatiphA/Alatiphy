@@ -368,8 +368,26 @@ const songs = [
    title: "The Elite - AlatiphA", 
    src: "https://archive.org/download/the-elite-alatiph-a-mp-3-160-k/The%20Elite%20-%20AlatiphA%28MP3_160K%29.mp3", 
    tags: ["rap", "recentlyadded"]
-}
+}, 
 
+{ 
+   title: "Silent Titles - AlatiphA", 
+   src: "https://archive.org/download/double-standards-alatiph-a-mp-3-160-k/Silent%20Titles%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rap", "recentlyadded"]
+},
+
+{ 
+   title: "Echo Chamber - AlatiphA", 
+   src: "https://archive.org/download/double-standards-alatiph-a-mp-3-160-k/Echo%20Chamber%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rap", "recentlyadded"]
+},  
+
+{
+   title: "Double Standards - AlatiphA", 
+   src: "https://archive.org/download/double-standards-alatiph-a-mp-3-160-k/Double%20Standards%20-%20AlatiphA%28MP3_160K%29.mp3", 
+   tags: ["rap", "recentlyadded"]
+}
+  
 ];
 
 
