@@ -743,7 +743,22 @@ async function loadSong() {
       );
     }
 
-    DOM.audio.src = src;
+    // wait for the new source to be ready before returning,
+    // so playSong() never races the browser's src swap
+    await new Promise((resolve) => {
+
+      const onReady = () => {
+        DOM.audio.removeEventListener("loadedmetadata", onReady);
+        DOM.audio.removeEventListener("error", onReady);
+        resolve();
+      };
+
+      DOM.audio.addEventListener("loadedmetadata", onReady, { once: true });
+      DOM.audio.addEventListener("error", onReady, { once: true });
+
+      DOM.audio.src = src;
+      DOM.audio.load();
+    });
 
     DOM.cover.src = song.cover || COVER || "";
 
@@ -797,6 +812,9 @@ async function silentCacheSong(song) {
 
     if (!response.ok) return;
 
+    // bail if user skipped away from this song while fetching
+    if (STATE.songs[STATE.currentIndex] !== song) return;
+
     const contentType =
       response.headers.get("content-type") || "";
 
@@ -849,9 +867,18 @@ function playSong() {
         navigator.mediaSession.playbackState = "playing";
       }
 
-      // silently cache current song in background
+      // silently cache current song in background,
+      // delayed so it doesn't compete with the <audio>
+      // element's own network request for the same file
       const song = STATE.songs[STATE.currentIndex];
-      if (song) silentCacheSong(song);
+      if (song) {
+        setTimeout(() => {
+          // bail if user has since skipped to a different track
+          if (STATE.songs[STATE.currentIndex] === song) {
+            silentCacheSong(song);
+          }
+        }, 5000);
+      }
     })
 
     .catch(err => {
@@ -929,22 +956,22 @@ function updateMediaSession() {
 }
 
 /* ===== NEXT SONG ===== */
-function nextSong(){
+async function nextSong(){
   STATE.currentIndex =
     (STATE.currentIndex + 1) % STATE.songs.length;
 
   saveState();
-  loadSong();
+  await loadSong();
   playSong();
 }
 
 /* ===== PREVIOUS SONG ===== */
-function prevSong(){
+async function prevSong(){
   STATE.currentIndex =
     (STATE.currentIndex - 1 + STATE.songs.length) % STATE.songs.length;
 
   saveState();
-  loadSong();
+  await loadSong();
   playSong();
 }
 
@@ -1050,7 +1077,7 @@ div.innerHTML = `
 `;
 
     // play
-    div.onclick = (e) => {
+    div.onclick = async (e) => {
 
   if (e.target.closest(".heart")) return;
 
@@ -1062,7 +1089,7 @@ div.innerHTML = `
 
   STATE.currentIndex = i;
 
-  loadSong();
+  await loadSong();
   playSong();
   highlightActiveTrack();
   saveState();
@@ -1201,12 +1228,12 @@ function getPlaylistByTag(tag){
 /* ===== GET CURRENT PLAYLIST ===== */
 function getCurrentPlaylist(){
 
-  // DOWNLOADS VIEW
+  // DOWNLOADS VIEW — includes real downloads AND silently cached songs
   if (STATE.view === "downloads") {
 
     return STATE.songs
       .map((song, index) => ({ song, index }))
-      .filter(item => isDownloaded(item.index));
+      .filter(item => isOfflineAvailable(item.index));
   }
 
   // FAVORITES VIEW
@@ -1291,7 +1318,7 @@ async function renderDownloads() {
 
       DOM.list.innerHTML =
         `<div style="padding:15px;">
-          No downloaded songs yet
+          No offline songs yet
         </div>`;
 
       return;
@@ -1307,6 +1334,11 @@ async function renderDownloads() {
       const div = document.createElement("div");
 
       div.className = "song";
+
+      if (download.isRealDownload) {
+        div.classList.add("downloaded");
+      }
+
       div.dataset.index = originalIndex;
 
       const isFav =
@@ -1327,13 +1359,13 @@ async function renderDownloads() {
       `;
 
       // PLAY
-      div.onclick = (e) => {
+      div.onclick = async (e) => {
 
   if (e.target.closest(".heart")) return;
 
   STATE.currentIndex = originalIndex;
 
-  loadSong();
+  await loadSong();
   playSong();
   highlightActiveTrack();
   saveState();
@@ -1527,11 +1559,18 @@ function getNextIndex(direction = "next") {
   const playlist = getCurrentPlaylist();
   if (!playlist.length) return null;
 
-  const currentPos = playlist.findIndex(
+  let currentPos = playlist.findIndex(
     item => item.index === STATE.currentIndex
   );
 
-  if (currentPos === -1) return null;
+  // Current song isn't part of this view's playlist
+  // (e.g. playing a song from "All Songs" then switching
+  // to Downloads/Favorites where that song doesn't appear).
+  // Treat it as "before the first song" so Next/Prev still
+  // works instead of breaking playback.
+  if (currentPos === -1) {
+    currentPos = direction === "next" ? -1 : 0;
+  }
 
   // REPEAT ONE
   if (STATE.repeat === "one") {
@@ -1713,6 +1752,19 @@ function isDownloaded(index) {
   return !!(entry && entry.isRealDownload);
 }
 
+// True for a REAL download OR a silently cached song —
+// anything already stored locally and playable offline.
+// Used for the Downloads view's song list and navigation.
+// Does NOT drive the ⬇ indicator — that stays tied to
+// isDownloaded() (real downloads only).
+function isOfflineAvailable(index) {
+
+  const song = STATE.songs[index];
+  if (!song) return false;
+
+  return !!STATE.downloadedSongs[song.src];
+}
+
 async function loadDownloadedSongsMap() {
 
   try {
@@ -1811,8 +1863,7 @@ function handleSwipe(timeTaken) {
 }
 
 saveState();
-loadSong();
-playSong();
+loadSong().then(playSong);
 highlightActiveTrack();     
     }
   }
@@ -1853,7 +1904,7 @@ DOM.playBtn.onclick = () => {
 };
 
 //NEXT BUTTON 
-document.getElementById("next").onclick = () => {
+document.getElementById("next").onclick = async () => {
 
   const nextIndex = getNextIndex("next");
 
@@ -1864,14 +1915,14 @@ document.getElementById("next").onclick = () => {
 
   STATE.currentIndex = nextIndex;
 
-  loadSong();
+  await loadSong();
   playSong();
   highlightActiveTrack();
   saveState();
 };
 
 //PREVIOUS BUTTON  
-document.getElementById("prev").onclick = () => {
+document.getElementById("prev").onclick = async () => {
 
   const prevIndex = getNextIndex("prev");
 
@@ -1879,7 +1930,7 @@ document.getElementById("prev").onclick = () => {
 
   STATE.currentIndex = prevIndex;
 
-  loadSong();
+  await loadSong();
   playSong();
   highlightActiveTrack();
   saveState();
@@ -1903,7 +1954,7 @@ setTimeout(() => {
 DOM.audio.addEventListener("timeupdate", updateTime);
 
 //AUDIO
-DOM.audio.addEventListener("ended", function () {
+DOM.audio.addEventListener("ended", async function () {
 
   // REPEAT ONE
   if (STATE.repeat === "one") {
@@ -1927,7 +1978,7 @@ DOM.audio.addEventListener("ended", function () {
 
         STATE.currentIndex = playlist[0].index;
 
-        loadSong();
+        await loadSong();
         playSong();
         highlightActiveTrack();
         saveState();
@@ -1945,7 +1996,7 @@ DOM.audio.addEventListener("ended", function () {
 
   STATE.currentIndex = nextIndex;
 
-  loadSong();
+  await loadSong();
   playSong();
   highlightActiveTrack();
   saveState();
@@ -2043,6 +2094,11 @@ function updateActiveTab(){
 
   document.querySelectorAll(".tab-btn")
     .forEach(btn => btn.classList.remove("active"));
+
+  // Downloads/About aren't filter tabs — no tab should be highlighted
+  if (STATE.view === "downloads" || STATE.view === "about") {
+    return;
+  }
 
   if(STATE.showFavoritesOnly){
     DOM.tabFavorites.classList.add("active");
