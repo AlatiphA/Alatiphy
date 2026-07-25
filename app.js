@@ -391,7 +391,6 @@ const songs = [
 ];
 
 
-
 // =======================
 // STATE LAYER
 // =======================
@@ -425,7 +424,6 @@ lastVolume: parseFloat(localStorage.getItem("volume")) || 1,
 
 
 /* ====== DURATION_KEY - Change if songs change ====== */
-
 const DURATION_KEY = "alatiphy_beta_durations_v2";
 
 try {
@@ -516,7 +514,6 @@ function loadDurations() {
 }
 
 /* ===== UPDATE DURATION ===== */
-
 function updateSingleDuration(index, duration) {
 
   const el = DOM.list.querySelector(
@@ -609,7 +606,6 @@ function openDatabase() {
 }
 
 /* ===== SAVE SONG ===== */
-  
 function saveSongToDB(songData) {
 
   return new Promise((resolve, reject) => {
@@ -649,7 +645,6 @@ function saveSongToDB(songData) {
 }
 
 /* ===== GET SONGS ===== */
-  
 function getSongFromDB(id) {
 
   return new Promise((resolve, reject) => {
