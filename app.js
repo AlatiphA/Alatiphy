@@ -811,7 +811,6 @@ async function loadSong() {
   }
 }
 
-/* ===== PLAY SONG ===== */
 /* ===== SILENT BACKGROUND CACHE ===== */
 async function silentCacheSong(song) {
 
@@ -864,6 +863,7 @@ async function silentCacheSong(song) {
   }
 }
 
+/* ===== PLAY SONG ===== */ 
 function playSong() {
 
   DOM.audio.play()
@@ -914,7 +914,7 @@ function playSong() {
     });
 }
 
-/* ===== PLAY SONG ===== */
+/* ===== PAUSE SONG ===== */
 function pauseSong(){
 
   DOM.audio.pause();
