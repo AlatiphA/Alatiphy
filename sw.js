@@ -7,7 +7,7 @@
    get a "New version available" prompt on next visit.
 ===================================================== */
 
-const APP_VERSION = "v7.5";
+const APP_VERSION = "v7.6";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;
@@ -27,7 +27,7 @@ const ASSETS = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
-  "./css/all.min.css"
+  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css",
 ];
 
 /* ====================
