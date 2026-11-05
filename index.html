@@ -67,6 +67,13 @@ content="black-translucent">
       </div>
     </div>
 
+    <section class="app-updates" aria-labelledby="updates-heading">
+      <strong id="updates-heading">App updates</strong>
+      <p id="update-status" role="status" aria-live="polite">Preparing update checks…</p>
+      <button id="check-updates" type="button" disabled>Check for updates</button>
+      <button id="install-update" type="button" hidden>Install update</button>
+    </section>
+
     <div class="clear-data-section">
       <button class="clear-data-btn" id="clear-data-btn">
         <i class="fas fa-trash"></i> Clear Data
@@ -131,7 +138,7 @@ content="black-translucent">
     >
     <div class="aboutText">
       <strong>Alatiphy β - AlatiphA Music</strong><br>
-      ©️ 2026 | All Rights Reserved | <span id="appVersion">v7.10.0</span><br>
+      ©️ 2026 | All Rights Reserved | <span id="appVersion">v7.11.0</span><br>
       Developed by Abdul-Latif Ahmed [AlatiphA]<br>
       <a href="#faq" id="faq-link" style="color:var(--accent);text-decoration:none;">
         <i class="fa-solid fa-circle-question"></i> FAQ
@@ -716,6 +723,7 @@ body.theme-dark .faq-inline {
 </template>
 
 <script src="app.js" defer></script>
+<script src="updates.js" defer></script>
 <script src="install.js" defer></script>
 
 </body>  

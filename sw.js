@@ -8,7 +8,7 @@
    Existing listening sessions are not reloaded.
 ===================================================== */
 
-const APP_VERSION = "7.10.0";
+const APP_VERSION = "7.11.0";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;
@@ -23,6 +23,7 @@ const ASSETS = [
   "./index.html",
   "./faq.html",
   "./app.js",
+  "./updates.js",
   "./sw.js",
   "./install.js",
   "./style.css",
@@ -38,7 +39,7 @@ const ASSETS = [
 ==================== */
 self.addEventListener("install", (event) => {
 
-  self.skipWaiting();
+  // Updates wait for the listener to choose Install update.
 
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -51,6 +52,12 @@ self.addEventListener("install", (event) => {
         const results = await Promise.allSettled(
           ASSETS.map((url) => cache.add(url))
         );
+
+        // Never offer an update that is missing the files needed to run the app.
+        const required = ["./", "./index.html", "./app.js", "./updates.js", "./style.css", "./manifest.json", "./version.json"];
+        if (results.some((result, i) => result.status === "rejected" && required.includes(ASSETS[i]))) {
+          throw new Error("The update could not download all required app files.");
+        }
 
         results.forEach((result, i) => {
           if (result.status === "rejected") {
@@ -81,6 +88,7 @@ self.addEventListener("activate", (event) => {
         keys.map((key) => {
 
           if (
+            (key.startsWith("alatiphy-beta-pwa-") || key.startsWith("alatiphy-songs-pwa-")) &&
             key !== CACHE_NAME &&
             key !== SONG_CACHE
           ) {
@@ -103,6 +111,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
 
   const request = event.request;
+  const url = new URL(request.url);
+  // Release checks must reach the network, never a cached version.json.
+  if (url.origin === self.location.origin &&
+      url.pathname === new URL("./version.json", self.registration.scope).pathname) return;
+
 
   /* ====================
      1. MANUAL DOWNLOADS
@@ -372,6 +385,11 @@ async function cacheAudioFirst(request) {
 ==================== */
 
 self.addEventListener("message", (event) => {
+  if (event.data === "GET_VERSION") {
+    event.ports[0]?.postMessage(APP_VERSION);
+    return;
+  }
+
 
   if (
     event.data &&

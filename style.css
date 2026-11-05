@@ -975,3 +975,21 @@ box-shadow:
   margin-top: 8px;
   min-height: 14px;
 }
+.app-updates {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--border, #aaa);
+  border-radius: 10px;
+}
+.app-updates p { font-size: 13px; line-height: 1.5; margin: 8px 0; }
+.app-updates button {
+  padding: 9px 12px;
+  margin: 4px 4px 0 0;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.app-updates button:disabled { opacity: .6; cursor: wait; }
+.app-updates button[hidden] { display: none; }

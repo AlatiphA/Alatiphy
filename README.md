@@ -124,6 +124,20 @@ The service worker's versioned cache names control this app's cached releases.
 The IndexedDB schema version is independent and changes only for database migrations.
 Files ending in `1` are historical alternatives and are outside the active release.
 
+### Check for updates
+
+Open the sidebar and use **App updates → Check for updates**. Alatiphy compares a
+fresh `version.json` with the running app and active service worker. It reports
+offline/network errors without claiming the app is up to date. Available updates
+show **Install update** (or **Reload app** if already activated in another tab).
+
+Checking leaves music playing. Installing asks before refreshing, saves playback
+position, and keeps IndexedDB downloads, favorites and settings. Automatic playback
+after refresh still depends on browser autoplay permission. Updates wait until
+installed by the listener or until all old app tabs close; another tab's update
+does not force a listening tab to reload. Core app files must download successfully
+before a new worker can finish installation.
+
 ---
 
 ## Songs (12 Tracks)

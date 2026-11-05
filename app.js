@@ -1,7 +1,8 @@
 (function(){
 
 // Generated from version.json by tools/release.cjs.
-const APP_VERSION = "7.10.0";
+const APP_VERSION = "7.11.0";
+document.documentElement.dataset.appVersion = APP_VERSION;
 const appVersionLabel = document.getElementById("appVersion");
 if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
 
@@ -539,6 +540,22 @@ try {
 let loadedSongSrc = null;
 let lastPlaybackSave = 0;
 let clearingData = false;
+let updatePlayback = null;
+window.addEventListener("alatiphy:before-update", () => {
+  savePlaybackPosition();
+  updatePlayback = { time: DOM.audio.currentTime, playing: !DOM.audio.paused };
+  // Release the live audio request so the new worker can activate.
+  DOM.audio.pause();
+  DOM.audio.removeAttribute("src");
+  DOM.audio.load();
+});
+window.addEventListener("alatiphy:update-failed", async () => {
+  const resume = updatePlayback;
+  updatePlayback = null;
+  if (!resume) return;
+  await loadSong(resume.time);
+  if (resume.playing) playSong();
+});
 
 // Add only one Back step per page session. A second Back can leave normally.
 let backStepUsed = false;
@@ -571,7 +588,7 @@ window.addEventListener("popstate", () => {
 });
 
 function savePlaybackPosition() {
-  if (clearingData || !loadedSongSrc || DOM.audio.readyState < 1) return;
+  if (clearingData || updatePlayback || !loadedSongSrc || DOM.audio.readyState < 1) return;
   const time = DOM.audio.currentTime;
   if (!Number.isFinite(time)) return;
   try {
@@ -2665,40 +2682,6 @@ updateShuffleButton();
 
   // Reveal UI now that songs are rendered
   document.body.classList.add("app-ready");
-}
-
-if ("serviceWorker" in navigator) {
-
-  navigator.serviceWorker.register("./sw.js")
-    .then((registration) => {
-
-      console.log("Service Worker registered");
-
-      // force update check
-      registration.update();
-
-      navigator.serviceWorker.addEventListener(
-        "message",
-        (event) => {
-
-          if (
-            event.data &&
-            event.data.type === "RELOAD"
-          ) {
-
-            // Apply the update on the next visit; never interrupt a listening session.
-            savePlaybackPosition();
-          }
-        }
-      );
-    })
-
-    .catch((err) => {
-      console.error(
-        "Service Worker registration failed",
-        err
-      );
-    });
 }
 
 /* ===== CLEAR DATA ===== */
