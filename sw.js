@@ -7,7 +7,7 @@
    get a "New version available" prompt on next visit.
 ===================================================== */
 
-const APP_VERSION = "v7.7";
+const APP_VERSION = "v7.9";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;
@@ -89,16 +89,7 @@ self.addEventListener("activate", (event) => {
 
       await self.clients.claim();
 
-      // force reload all tabs
-      const clientsList =
-        await self.clients.matchAll();
-
-      clientsList.forEach((client) => {
-
-        client.postMessage({
-          type: "RELOAD"
-        });
-      });
+      // Existing player pages keep running; updates apply on the next visit.
 
     })()
   );

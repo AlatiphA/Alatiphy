@@ -497,7 +497,7 @@ const STATE = {
 
   currentIndex: (() => {
   const i = parseInt(localStorage.getItem("index"));
-  return isNaN(i) ? 0 : i;
+  return Number.isInteger(i) && i >= 0 && i < songs.length ? i : 0;
 })(),
 
   favorites: JSON.parse(localStorage.getItem("favorites")) || [],
@@ -517,6 +517,84 @@ lastVolume: parseFloat(localStorage.getItem("volume")) || 1,
   nextBufferAudio: new Audio()
 };
 
+
+// One atomic record keeps the position tied to the song, even if the list changes.
+const PLAYBACK_KEY = "alatiphy_playback_v1";
+let restoredPlayback = null;
+try {
+  const saved = JSON.parse(localStorage.getItem(PLAYBACK_KEY));
+  const index = saved && STATE.songs.findIndex(song => song.src === saved.src);
+  if (saved && index >= 0 && Number.isFinite(saved.time) && saved.time >= 0) {
+    STATE.currentIndex = index;
+    restoredPlayback = saved;
+  }
+} catch (err) {
+  console.warn("Could not restore playback", err);
+}
+let loadedSongSrc = null;
+let lastPlaybackSave = 0;
+let clearingData = false;
+
+// Add only one Back step per page session. A second Back can leave normally.
+let backStepUsed = false;
+function protectPlaybackNavigation() {
+  if (backStepUsed || history.state?.alatiphyPlayer) return;
+  history.pushState({ ...history.state, alatiphyPlayer: true }, "");
+}
+window.addEventListener("popstate", () => {
+  if (STATE.view === "faq") {
+    switchView(faqPreviousView);
+    return;
+  }
+  if (history.state?.alatiphyFaq) {
+    renderFaq();
+    return;
+  }
+  if (history.state?.alatiphyPlayer || backStepUsed) return;
+  backStepUsed = true;
+  DOM.sideMenu.classList.remove("open");
+  DOM.overlay.classList.remove("show");
+  supporterKeyModal?.classList.remove("open");
+  DOM.menuPopup.style.display = "none";
+  switchView("home");
+  STATE.isMini = true;
+  DOM.player.classList.add("mini");
+  document.querySelector(".app").classList.add("mini-player");
+  updateCollapseIcon();
+  setTimeout(updateMarquee, 80);
+  savePlaybackPosition();
+});
+
+function savePlaybackPosition() {
+  if (clearingData || !loadedSongSrc || DOM.audio.readyState < 1) return;
+  const time = DOM.audio.currentTime;
+  if (!Number.isFinite(time)) return;
+  try {
+    localStorage.setItem(PLAYBACK_KEY, JSON.stringify({
+      src: loadedSongSrc,
+      time,
+      playing: !DOM.audio.paused && !DOM.audio.ended
+    }));
+  } catch (err) {
+    console.warn("Could not save playback", err);
+  }
+}
+DOM.audio.addEventListener("timeupdate", () => {
+  if (Date.now() - lastPlaybackSave >= 1000) {
+    savePlaybackPosition();
+    lastPlaybackSave = Date.now();
+  }
+});
+DOM.audio.addEventListener("seeked", savePlaybackPosition);
+DOM.audio.addEventListener("pause", savePlaybackPosition);
+DOM.audio.addEventListener("play", () => {
+  protectPlaybackNavigation();
+  savePlaybackPosition();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") savePlaybackPosition();
+});
+window.addEventListener("pagehide", savePlaybackPosition);
 
 /* ====== DURATION_KEY - Change if songs change ====== */
 
@@ -835,10 +913,13 @@ function scheduleRender() {
 }
 
 /* ===== LOAD SONG ===== */
-async function loadSong() {
+async function loadSong(resumeTime = 0) {
 
   const song = STATE.songs[STATE.currentIndex];
   if (!song) return;
+
+  savePlaybackPosition();
+  loadedSongSrc = null;
 
   try {
 
@@ -868,6 +949,16 @@ async function loadSong() {
       DOM.audio.src = src;
       DOM.audio.load();
     });
+
+    loadedSongSrc = song.src;
+    if (Number.isFinite(resumeTime) && resumeTime > 0) {
+      const duration = DOM.audio.duration;
+      DOM.audio.currentTime = Number.isFinite(duration)
+        ? Math.min(resumeTime, Math.max(0, duration - 0.1))
+        : resumeTime;
+    }
+    updateTime();
+    savePlaybackPosition();
 
     DOM.cover.src = song.cover || COVER || "";
 
@@ -1120,12 +1211,9 @@ function preloadNextTrack() {
   STATE.nextBufferAudio.src = nextSong.src;
   STATE.nextBufferAudio.load();
 
-  STATE.nextBufferAudio.play()
-    .then(() => {
-      STATE.nextBufferAudio.pause();
-      STATE.nextBufferAudio.currentTime = 0;
-    })
-    .catch(() => {});
+  // Fetch ahead without playing a second audio element.
+  STATE.nextBufferAudio.preload = "auto";
+
 }
 
 /* ===== SAVE STATE ===== */
@@ -1135,11 +1223,13 @@ function saveState(){
 
 /* ===== SAVE PLAYLIST STATE ===== */
 function savePlaybackState(isPlaying) {
+  savePlaybackPosition();
   localStorage.setItem("isPlaying", isPlaying);
 }
 
 /* ===== RENDER LIST ===== */
 function renderList(filter=""){
+  if (STATE.view === "faq") return;
 
   DOM.list.innerHTML = "";
 
@@ -1357,6 +1447,57 @@ function getCurrentPlaylist(){
   return getPlaylistByTag(STATE.activePlaylist);
 }
 
+// FAQ is a view of the current document, so the audio element stays alive.
+let faqPreviousView = "home";
+function closeFaq() {
+  if (history.state?.alatiphyFaq) history.back();
+  else switchView(faqPreviousView);
+}
+function renderFaq() {
+  STATE.view = "faq";
+  DOM.list.replaceChildren(document.getElementById("faq-template").content.cloneNode(true));
+  const faq = DOM.list.querySelector(".faq-inline");
+  faq.querySelector(".backLink").onclick = event => {
+    event.preventDefault();
+    closeFaq();
+  };
+  faq.querySelectorAll(".faqQuestion").forEach(button => {
+    button.setAttribute("aria-expanded", "false");
+    button.onclick = () => {
+      const item = button.closest(".faqItem");
+      const open = item.classList.contains("open");
+      faq.querySelectorAll(".faqItem").forEach(other => {
+        other.classList.remove("open");
+        other.querySelector(".faqQuestion").setAttribute("aria-expanded", "false");
+      });
+      item.classList.toggle("open", !open);
+      button.setAttribute("aria-expanded", String(!open));
+    };
+  });
+  const theme = faq.querySelector("#faq-theme-toggle");
+  theme.onclick = () => {
+    setTheme(document.body.classList.contains("theme-dark") ? "light" : "dark");
+  };
+  const copy = faq.querySelector("#faq-copy-btn");
+  if (copy) copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText("0243443688");
+      copy.textContent = "Copied!";
+      setTimeout(() => { copy.textContent = "Copy Number"; }, 2000);
+    } catch (err) { copy.textContent = "Copy failed. Try again."; }
+  };
+  updateActiveTab();
+}
+document.getElementById("faq-link").onclick = event => {
+  event.preventDefault();
+  if (STATE.view === "faq") return;
+  faqPreviousView = STATE.view;
+  DOM.sideMenu.classList.remove("open");
+  DOM.overlay.classList.remove("show");
+  history.pushState({ ...history.state, alatiphyFaq: true }, "");
+  renderFaq();
+};
+
 // SWITCH VIEW HELPER 
 
 function resetUIState() {
@@ -1368,6 +1509,8 @@ function resetUIState() {
 function switchView(view) {
 
   STATE.view = view;
+
+  if (view === "faq") { renderFaq(); return; }
 
   resetUIState();
 
@@ -1472,6 +1615,10 @@ async function renderDownloads() {
 
   if (e.target.closest(".heart")) return;
 
+  if (STATE.currentIndex === originalIndex) {
+    DOM.audio.paused ? playSong() : pauseSong();
+    return;
+  }
   STATE.currentIndex = originalIndex;
 
   await loadSong();
@@ -2205,7 +2352,7 @@ function updateActiveTab(){
     .forEach(btn => btn.classList.remove("active"));
 
   // Downloads/About aren't filter tabs — no tab should be highlighted
-  if (STATE.view === "downloads" || STATE.view === "about") {
+  if (["downloads", "about", "faq"].includes(STATE.view)) {
     return;
   }
 
@@ -2483,7 +2630,10 @@ async function init(){
 
   renderList();
 
-  loadSong();
+  const wasPlaying = restoredPlayback
+    ? restoredPlayback.playing
+    : localStorage.getItem("isPlaying") === "true";
+  const songReady = loadSong(restoredPlayback?.time || 0);
 
   // 🔥 Force UI sync AFTER everything is ready
   setTimeout(() => {
@@ -2503,11 +2653,10 @@ updateShuffleButton();
 
   DOM.clearBtn.style.display = "none";
   
-  const wasPlaying = JSON.parse(localStorage.getItem("isPlaying"));
-
-  if (wasPlaying) {
-    playSong();
-  }
+  // Reveal the app even if the audio server is slow. Resume only after seeking.
+  songReady.then(() => {
+    if (wasPlaying) playSong();
+  });
 
   // Reveal UI now that songs are rendered
   document.body.classList.add("app-ready");
@@ -2532,7 +2681,8 @@ if ("serviceWorker" in navigator) {
             event.data.type === "RELOAD"
           ) {
 
-            window.location.reload();
+            // Apply the update on the next visit; never interrupt a listening session.
+            savePlaybackPosition();
           }
         }
       );
@@ -2554,6 +2704,8 @@ function clearAllData() {
   );
 
   if (!confirmed) return;
+
+  clearingData = true;
 
   const tasks = [];
 
