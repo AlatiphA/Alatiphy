@@ -8,7 +8,7 @@
    Existing listening sessions are not reloaded.
 ===================================================== */
 
-const APP_VERSION = "7.12.1";
+const APP_VERSION = "7.12.2";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;
@@ -50,7 +50,9 @@ self.addEventListener("install", (event) => {
         // entire precache and leave the app with ZERO
         // offline support.
         const results = await Promise.allSettled(
-          ASSETS.map((url) => cache.add(url))
+          // A new cache must contain the published release, not a still-fresh
+          // HTTP-cached script from the previous release.
+          ASSETS.map((url) => cache.add(new Request(new URL(url, self.registration.scope), { cache: "reload" })))
         );
 
         // Never offer an update that is missing the files needed to run the app.

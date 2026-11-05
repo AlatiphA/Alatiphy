@@ -104,8 +104,12 @@ async function setup(options = {}) {
   const handlers = {}, cached = []; let skipped = 0, failCore = false;
   const self = { location: { origin: 'https://example.com' }, registration: { scope: 'https://example.com/Alatiphy/' },
     addEventListener: (type, fn) => { handlers[type] = fn; }, skipWaiting: () => { skipped++; } };
-  vm.runInNewContext(workerSource, { self, URL, console: { warn() {} }, caches: {
-    open: async () => ({ add: async url => { cached.push(url); if (failCore && url === './app.js') throw Error('fail'); } })
+  vm.runInNewContext(workerSource, { self, URL, Request, console: { warn() {} }, caches: {
+    open: async () => ({ add: async request => {
+      assert.equal(request.cache, 'reload', 'new release must bypass stale HTTP cache');
+      const url = './' + new URL(request.url).pathname.replace('/Alatiphy/', '');
+      cached.push(url); if (failCore && url === './app.js') throw Error('fail');
+    } })
   } });
   let installation; handlers.install({ waitUntil: promise => { installation = promise; } }); await installation;
   assert.equal(skipped, 0, 'install must wait for user choice');

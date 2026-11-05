@@ -1,7 +1,7 @@
 (function(){
 
 // Generated from version.json by tools/release.cjs.
-const APP_VERSION = "7.12.1";
+const APP_VERSION = "7.12.2";
 document.documentElement.dataset.appVersion = APP_VERSION;
 const appVersionLabel = document.getElementById("appVersion");
 if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
