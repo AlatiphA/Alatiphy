@@ -8,7 +8,7 @@
    Existing listening sessions are not reloaded.
 ===================================================== */
 
-const APP_VERSION = "7.12.0";
+const APP_VERSION = "7.12.1";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;

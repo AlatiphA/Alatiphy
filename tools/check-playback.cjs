@@ -112,6 +112,12 @@ function setup() {
   assert.ok(x.elements.audio.src.startsWith('blob:'),'a failed stream can recover from a completed local copy');
   assert.equal(x.elements.audio.currentTime,42,'recovery preserves playback position');
 
+  x=setup();await x.run('startTrack(1)');x.elements.audio.pause();x.elements.audio.currentTime=27;
+  x.state.downloadedSongs.b={blob:new Blob(['now-saved'])};x.navigator.onLine=false;
+  await x.run('playSong()');
+  assert.ok(x.elements.audio.src.startsWith('blob:'),'resuming a newly saved stream switches to its local file');
+  assert.equal(x.elements.audio.currentTime,27,'local resume keeps the same position');
+
   x=setup(); x.state.songs[1].src='broken';
   const failed=x.run('loadSong()'); await failed; // First verify the working source.
   x.state.currentIndex=1; assert.equal(await x.run('loadSong()'),false,'metadata error is a failed load');

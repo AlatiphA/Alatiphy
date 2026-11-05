@@ -1,7 +1,7 @@
 (function(){
 
 // Generated from version.json by tools/release.cjs.
-const APP_VERSION = "7.12.0";
+const APP_VERSION = "7.12.1";
 document.documentElement.dataset.appVersion = APP_VERSION;
 const appVersionLabel = document.getElementById("appVersion");
 if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
@@ -1113,6 +1113,10 @@ async function silentCacheSong(song) {
 function playSong() {
   const song = STATE.songs[STATE.currentIndex];
   if (!song || loadedSongSrc !== song.src) return Promise.resolve(false);
+  // A track may have finished saving while it was streaming. Resume it locally.
+  if (!currentUsesLocal && hasSavedAudio(STATE.downloadedSongs[song.src])) {
+    return startTrack(STATE.currentIndex, DOM.audio.currentTime);
+  }
   // A user pressing Play after a network failure should retry the source.
   if (DOM.audio.error) return startTrack(STATE.currentIndex, DOM.audio.currentTime);
   const sequence = loadSequence;
