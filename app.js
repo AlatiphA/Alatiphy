@@ -1,7 +1,7 @@
 (function(){
 
 // Generated from version.json by tools/release.cjs.
-const APP_VERSION = "7.11.0";
+const APP_VERSION = "7.11.1";
 document.documentElement.dataset.appVersion = APP_VERSION;
 const appVersionLabel = document.getElementById("appVersion");
 if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
@@ -1251,7 +1251,8 @@ function savePlaybackState(isPlaying) {
 
 /* ===== RENDER LIST ===== */
 function renderList(filter=""){
-  if (STATE.view === "faq") return;
+  if (["faq", "about"].includes(STATE.view)) return;
+  parkUpdatePanel();
 
   DOM.list.innerHTML = "";
 
@@ -1476,6 +1477,7 @@ function closeFaq() {
   else switchView(faqPreviousView);
 }
 function renderFaq() {
+  parkUpdatePanel();
   STATE.view = "faq";
   DOM.list.replaceChildren(document.getElementById("faq-template").content.cloneNode(true));
   const faq = DOM.list.querySelector(".faq-inline");
@@ -1529,6 +1531,7 @@ function resetUIState() {
 
 // SWITCH VIEW 
 function switchView(view) {
+  parkUpdatePanel();
 
   STATE.view = view;
 
@@ -1576,6 +1579,7 @@ function switchView(view) {
 ========================= */
 
 async function renderDownloads() {
+  parkUpdatePanel();
 
   DOM.list.innerHTML =
     `<div style="padding:15px;">
@@ -1585,6 +1589,7 @@ async function renderDownloads() {
   try {
 
     const downloads = await getAllDownloadedSongs();
+    if (STATE.view !== "downloads") return;
 
     DOM.list.innerHTML = "";
 
@@ -1695,19 +1700,30 @@ async function renderDownloads() {
    ***** ABOUT *****
 ========================= */
 
+// Keep the same update controls and listeners alive as views are rendered.
+function parkUpdatePanel() {
+  const panel = document.getElementById("app-updates");
+  const storage = document.getElementById("about-update-storage");
+  if (panel && storage && panel.parentElement !== storage) storage.appendChild(panel);
+}
+
 function showAbout() {
-
+  parkUpdatePanel();
   DOM.list.innerHTML = `
-    <div style="padding:15px; line-height:1.6;">
-      <section class="about-content">
-
-        <h1>Alatiphy - AlatiphA Music</h1>
-
-        <p>Alatiphy is a progressive web app (PWA) music player for streaming and offline listening to AlatiphA's original tracks.</p>
-        <p>With Alatiphy, it's easy to listen to tailored online and offline music on your phone, your computer, your tablet and many more devices.</p>
-
-        <h2>Features</h2>
-
+    <section class="about-page" aria-labelledby="about-heading">
+      <header class="about-identity">
+        <img src="icon-192.png" alt="" width="48" height="48">
+        <div><h1 id="about-heading">Alatiphy</h1><p>Version ${APP_VERSION}</p></div>
+      </header>
+      <p class="about-description">Original music by AlatiphA. Stream your favorites and listen offline.</p>
+      <button type="button" id="about-open-faq" class="about-guide">
+        <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+        <span>Help &amp; FAQ</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+      </button>
+      <div id="about-update-slot"></div>
+      <details class="about-card about-features">
+        <summary>What Alatiphy can do</summary>
+        <div class="about-feature-content">
         <h3>Playback</h3>
         <ul>
           <li>Play, pause, skip to next/previous track</li>
@@ -1804,26 +1820,21 @@ function showAbout() {
           <li>Warm gold/brown accent colour</li>
         </ul>
 
-        <hr>
 
-        <h2>Developer</h2>
-        <p>
-          <strong>Abdul-Latif Ahmed (AlatiphA)</strong><br>
-          Blogger: <a href="https://alatipha.blogspot.com" target="_blank" rel="noopener">AlatiphA Multimedia</a>
-        </p>
-        <p>
-          <a href="mailto:alatipha@ymail.com" style="display:inline-flex;align-items:center;gap:6px;">
-            <i class="fa fa-envelope"></i> alatipha@ymail.com
-          </a>
-        </p>
-
-        <footer style="margin-top:20px; font-size:12px; opacity:0.6;">
-          <p>&copy; 2026 | All Rights Reserved</p>
-        </footer>
-
+        </div>
+      </details>
+      <section class="about-card about-developer" aria-labelledby="about-developer-heading">
+        <h2 id="about-developer-heading">Made by AlatiphA</h2>
+        <p>Abdul-Latif Ahmed</p>
+        <div class="about-developer-links">
+          <a href="https://alatipha.blogspot.com" target="_blank" rel="noopener">Website <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+          <a href="mailto:alatipha@ymail.com">Get in touch <i class="fa-regular fa-envelope" aria-hidden="true"></i></a>
+        </div>
       </section>
-    </div>
-  `;
+      <footer class="about-copyright">&copy; 2026 AlatiphA. All rights reserved.</footer>
+    </section>`;
+  document.getElementById("about-update-slot").appendChild(document.getElementById("app-updates"));
+  document.getElementById("about-open-faq").onclick = () => document.getElementById("faq-link").click();
 }
 
 

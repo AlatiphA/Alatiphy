@@ -122,11 +122,11 @@ argument synchronizes files to the current `version.json` value.
 The manifest's `version` is custom app metadata, not a standard PWA update trigger.
 The service worker's versioned cache names control this app's cached releases.
 The IndexedDB schema version is independent and changes only for database migrations.
-Files ending in `1` are historical alternatives and are outside the active release.
+Historical alternate files have been removed; `index.html` is the active entry point.
 
 ### Check for updates
 
-Open the sidebar and use **App updates → Check for updates**. Alatiphy compares a
+Open **About → App updates → Check for updates** from the sidebar. Alatiphy compares a
 fresh `version.json` with the running app and active service worker. It reports
 offline/network errors without claiming the app is up to date. Available updates
 show **Install update** (or **Reload app** if already activated in another tab).

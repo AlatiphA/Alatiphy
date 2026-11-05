@@ -975,21 +975,33 @@ box-shadow:
   margin-top: 8px;
   min-height: 14px;
 }
-.app-updates {
-  margin: 16px 0;
-  padding: 12px;
-  border: 1px solid var(--border, #aaa);
-  border-radius: 10px;
-}
-.app-updates p { font-size: 13px; line-height: 1.5; margin: 8px 0; }
-.app-updates button {
-  padding: 9px 12px;
-  margin: 4px 4px 0 0;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-.app-updates button:disabled { opacity: .6; cursor: wait; }
-.app-updates button[hidden] { display: none; }
+/* About follows the compact identity, help row and update card used in GES Pasco. */
+.about-page { max-width: 600px; margin: 12px auto 24px; display: grid; gap: 14px; }
+.about-identity { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.about-identity img { border-radius: 12px; flex-shrink: 0; }
+.about-identity h1 { font-size: 21px; line-height: 1.3; margin: 0; }
+.about-identity p, .about-description { font-size: 13px; line-height: 1.6; opacity: .7; margin: 4px 0 0; }
+.about-description { margin: 0 0 2px; }
+.about-card, .about-guide { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.about-guide { display: grid; grid-template-columns: 20px 1fr 14px; gap: 10px; align-items: center; width: 100%; text-align: left; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.about-guide > i { color: var(--accent); }
+.about-guide > i:last-child { font-size: 11px; }
+.app-updates > strong, .about-developer h2 { display: block; font-size: 14px; font-weight: 600; }
+.app-updates p { font-size: 13px; line-height: 1.6; opacity: .75; margin: 8px 0 0; }
+.about-update-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.about-update-actions button { min-height: 42px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.about-update-actions #install-update { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.about-update-actions button:disabled { opacity: .6; cursor: wait; }
+.about-update-actions button[hidden] { display: none; }
+.about-page button:focus-visible, .about-page a:focus-visible, .about-page summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.about-features summary { font-size: 14px; font-weight: 600; cursor: pointer; }
+.about-feature-content { padding-top: 12px; font-size: 13px; line-height: 1.7; }
+.about-feature-content h3 { font-size: 13px; margin: 16px 0 6px; }
+.about-feature-content ul { padding-left: 20px; margin: 0; }
+.about-developer h2 { margin: 0; background: none; -webkit-text-fill-color: currentColor; }
+.about-developer p { font-size: 13px; opacity: .7; margin: 6px 0 14px; }
+.about-developer-links { display: flex; flex-wrap: wrap; gap: 18px; }
+.about-developer-links a { color: var(--accent); font-size: 13px; text-decoration: none; }
+.about-developer-links i { margin-left: 4px; font-size: 11px; }
+.about-copyright { font-size: 11px; text-align: center; opacity: .55; padding: 2px 0; }
+@media (max-width: 380px) { .about-page { gap: 12px; } .about-card, .about-guide { padding: 14px; } }
