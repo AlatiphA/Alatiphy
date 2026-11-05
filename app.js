@@ -1,5 +1,10 @@
 (function(){
 
+// Generated from version.json by tools/release.cjs.
+const APP_VERSION = "7.10.0";
+const appVersionLabel = document.getElementById("appVersion");
+if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
+
 // =======================
 // DOM LAYER
 // =======================

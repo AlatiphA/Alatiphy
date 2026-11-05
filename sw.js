@@ -2,12 +2,13 @@
    Alatiphy — Service Worker
    ─────────────────────────────────────────────────
    HOW TO UPDATE:
-   Bump APP_VERSION on every release (e.g. "1.0").
-   The cache name updates automatically. Users will
-   get a "New version available" prompt on next visit.
+   Run node tools/release.cjs MAJOR.MINOR.PATCH.
+   version.json is the source of truth; the release
+   command synchronizes the app, worker and manifest.
+   Existing listening sessions are not reloaded.
 ===================================================== */
 
-const APP_VERSION = "v7.9";
+const APP_VERSION = "7.10.0";
 
 const CACHE_NAME = `alatiphy-beta-pwa-${APP_VERSION}`;
 const SONG_CACHE = `alatiphy-songs-pwa-${APP_VERSION}`;
@@ -26,6 +27,7 @@ const ASSETS = [
   "./install.js",
   "./style.css",
   "./manifest.json",
+  "./version.json",
   "./icon-192.png",
   "./icon-512.png",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css",

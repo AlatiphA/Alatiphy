@@ -104,6 +104,26 @@ A progressive web app (PWA) music player for streaming and offline listening to 
 - **Web Share API** — native share on mobile
 - **Font Awesome 7** — icons
 
+### Release version
+
+`version.json` is the source of truth for the active release. From the repository
+folder, run this command with the next release number:
+
+```powershell
+node tools/release.cjs 7.10.0
+node tools/release.cjs --check
+```
+
+The command synchronizes `version.json`, the `APP_VERSION` constants in `app.js`
+and `sw.js`, the visible version in `index.html`, and the `version` metadata in
+`manifest.json`. Commit and deploy those files together. Running without a version
+argument synchronizes files to the current `version.json` value.
+
+The manifest's `version` is custom app metadata, not a standard PWA update trigger.
+The service worker's versioned cache names control this app's cached releases.
+The IndexedDB schema version is independent and changes only for database migrations.
+Files ending in `1` are historical alternatives and are outside the active release.
+
 ---
 
 ## Songs (12 Tracks)
