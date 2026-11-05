@@ -138,6 +138,30 @@ installed by the listener or until all old app tabs close; another tab's update
 does not force a listening tab to reload. Core app files must download successfully
 before a new worker can finish installation.
 
+### Offline and background playback
+
+Select songs in Downloads for a queue stored on this device. Saving is confirmed
+only after the IndexedDB transaction commits; partial HTTP responses and empty
+audio blobs are not accepted as offline saves. Both streamed and saved tracks use
+the same audio element. When the browser reports offline, queue navigation skips
+unsaved tracks. The player reports unavailable or failed audio instead of silently
+treating a failed load as ready.
+
+On-screen buttons, swipes, automatic track transitions and Android lock-screen
+controls use one captured playback queue. Browsing About or FAQ does not change
+it. Saved audio is preferred for playback and preloading even while online. Local
+preload URLs transfer to the main player and are released after use. Automatic
+transitions issue Play immediately instead of waiting for a metadata callback or
+timer. Lock-screen playback state and position follow native audio events.
+
+Run `node tools/check-playback.cjs` and `node tools/check-updates.cjs` to check
+the playback and update flows. These simulate browser/media events; they cannot
+verify a physical Android phone's battery policy or screen-off behavior. For a
+device check, play at least two downloaded tracks in airplane mode with the screen
+locked, then repeat with unsaved streamed tracks while online. Browser storage can
+still be cleared or evicted, and Android/browser suspension cannot be prevented
+by this web app. Repeat off intentionally stops at the end of the queue.
+
 ---
 
 ## Songs (12 Tracks)

@@ -1005,3 +1005,7 @@ box-shadow:
 .about-developer-links i { margin-left: 4px; font-size: 11px; }
 .about-copyright { font-size: 11px; text-align: center; opacity: .55; padding: 2px 0; }
 @media (max-width: 380px) { .about-page { gap: 12px; } .about-card, .about-guide { padding: 14px; } }
+
+#playback-status { font-size: 11px; line-height: 1.4; margin: 3px 0; opacity: .8; }
+#playback-status:empty { display: none; }
+.player.mini #playback-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

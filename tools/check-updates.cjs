@@ -91,7 +91,7 @@ async function setup(options = {}) {
   const audio = { currentTime: 82, paused: false, ended: false, readyState: 1,
     pause() { this.paused = true; }, removeAttribute() {}, load() { this.readyState = 0; } };
   const playbackContext = vm.createContext({ window: updateWindow, DOM: { audio },
-    clearingData: false, loadedSongSrc: 'song-a', PLAYBACK_KEY: 'playback', console,
+    clearingData: false, loadedSongSrc: 'song-a', PLAYBACK_KEY: 'playback', STATE: {}, console,
     localStorage: { setItem: (_, value) => { savedPlayback = JSON.parse(value); } },
     loadSong: async time => { recoveredAt = time; }, playSong: () => { recoveredPlaying = true; } });
   vm.runInContext(appSource.slice(appSource.indexOf('let updatePlayback ='), appSource.indexOf('// Add only one Back step')), playbackContext);

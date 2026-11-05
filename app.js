@@ -1,7 +1,7 @@
 (function(){
 
 // Generated from version.json by tools/release.cjs.
-const APP_VERSION = "7.11.1";
+const APP_VERSION = "7.12.0";
 document.documentElement.dataset.appVersion = APP_VERSION;
 const appVersionLabel = document.getElementById("appVersion");
 if (appVersionLabel) appVersionLabel.textContent = `v${APP_VERSION}`;
@@ -520,6 +520,7 @@ lastVolume: parseFloat(localStorage.getItem("volume")) || 1,
   isSwipeAllowed: false,
   durations: {}, 
   renderTimer: null, 
+  playbackQueue: null,
   nextBufferAudio: new Audio()
 };
 
@@ -533,6 +534,9 @@ try {
   if (saved && index >= 0 && Number.isFinite(saved.time) && saved.time >= 0) {
     STATE.currentIndex = index;
     restoredPlayback = saved;
+    if (Array.isArray(saved.queue)) {
+      STATE.playbackQueue = saved.queue.map(src => STATE.songs.findIndex(song => song.src === src)).filter(i => i >= 0);
+    }
   }
 } catch (err) {
   console.warn("Could not restore playback", err);
@@ -595,7 +599,8 @@ function savePlaybackPosition() {
     localStorage.setItem(PLAYBACK_KEY, JSON.stringify({
       src: loadedSongSrc,
       time,
-      playing: !DOM.audio.paused && !DOM.audio.ended
+      playing: !DOM.audio.paused && !DOM.audio.ended,
+      queue: STATE.playbackQueue?.map(index => STATE.songs[index]?.src).filter(Boolean)
     }));
   } catch (err) {
     console.warn("Could not save playback", err);
@@ -817,9 +822,9 @@ function saveSongToDB(songData) {
 
       const request = store.put(songData);
 
-      request.onsuccess = () => {
-        resolve(true);
-      };
+      transaction.oncomplete = () => resolve(true);
+      transaction.onabort = () => reject(transaction.error || new Error("Audio save was interrupted"));
+      transaction.onerror = () => reject(transaction.error || new Error("Audio save failed"));
 
       request.onerror = (event) => {
 
@@ -934,104 +939,141 @@ function scheduleRender() {
   });
 }
 
+/* ===== PLAYBACK SOURCES ===== */
+let activeBlobURL = null;
+let preparedTrack = null;
+let loadSequence = 0;
+let cancelPendingLoad = null;
+let currentUsesLocal = false;
+let wantsPlayback = false;
+
+function playbackStatus(message) {
+  const status = document.getElementById("playback-status");
+  if (status) status.textContent = message;
+}
+function hasSavedAudio(entry) {
+  return !!(entry && entry.blob instanceof Blob && entry.blob.size > 0);
+}
+function capturePlaybackQueue() {
+  STATE.playbackQueue = getCurrentPlaylist().map(item => item.index);
+}
+function getPlaybackPlaylist() {
+  const queue = STATE.playbackQueue
+    ? STATE.playbackQueue.map(index => ({ song: STATE.songs[index], index })).filter(item => item.song)
+    : getCurrentPlaylist();
+  return navigator.onLine === false ? queue.filter(item => isOfflineAvailable(item.index)) : queue;
+}
+function clearPreload() {
+  STATE.nextBufferAudio.removeAttribute("src");
+  STATE.nextBufferAudio.load();
+  if (preparedTrack?.blobURL) URL.revokeObjectURL(preparedTrack.blobURL);
+  preparedTrack = null;
+}
+
 /* ===== LOAD SONG ===== */
 async function loadSong(resumeTime = 0) {
-
   const song = STATE.songs[STATE.currentIndex];
-  if (!song) return;
-
+  if (!song) return false;
   savePlaybackPosition();
+  const sequence = ++loadSequence;
+  if (cancelPendingLoad) cancelPendingLoad();
   loadedSongSrc = null;
-
-  try {
-
-    let src = song.src;
-
-    // USE DOWNLOADED BLOB IF AVAILABLE
-    if (STATE.downloadedSongs[song.src]) {
-
-      src = URL.createObjectURL(
-        STATE.downloadedSongs[song.src].blob
-      );
-    }
-
-    // wait for the new source to be ready before returning,
-    // so playSong() never races the browser's src swap
-    await new Promise((resolve) => {
-
-      const onReady = () => {
-        DOM.audio.removeEventListener("loadedmetadata", onReady);
-        DOM.audio.removeEventListener("error", onReady);
-        resolve();
-      };
-
-      DOM.audio.addEventListener("loadedmetadata", onReady, { once: true });
-      DOM.audio.addEventListener("error", onReady, { once: true });
-
-      DOM.audio.src = src;
-      DOM.audio.load();
-    });
-
-    loadedSongSrc = song.src;
-    if (Number.isFinite(resumeTime) && resumeTime > 0) {
-      const duration = DOM.audio.duration;
-      DOM.audio.currentTime = Number.isFinite(duration)
-        ? Math.min(resumeTime, Math.max(0, duration - 0.1))
-        : resumeTime;
-    }
-    updateTime();
-    savePlaybackPosition();
-
-    DOM.cover.src = song.cover || COVER || "";
-
-    if (!DOM.cover.src) {
-      DOM.cover.src = COVER;
-    }
-
-    DOM.title.innerHTML =
-      `<span data-title="${song.title}">
-        ${song.title}
-      </span>`;
-
-    DOM.cover.classList.add("loading");
-
-    DOM.audio.addEventListener("canplay", () => {
-      DOM.cover.classList.remove("loading");
-    }, { once: true });
-
-    updateMarquee();
-
-    DOM.playBtn.innerHTML =
-      '<i class="fas fa-play"></i>';
-
-    DOM.playBtn.classList.remove("pause");
-
-    highlightActiveTrack();
-    updateMediaSession();
-
-  } catch (err) {
-
-    console.error("loadSong failed", err);
+  const previousBlobURL = activeBlobURL;
+  activeBlobURL = null;
+  const local = STATE.downloadedSongs[song.src];
+  currentUsesLocal = hasSavedAudio(local);
+  if (navigator.onLine === false && !currentUsesLocal) {
+    DOM.audio.pause();
+    DOM.audio.removeAttribute("src");
+    DOM.audio.load();
+    if (previousBlobURL) URL.revokeObjectURL(previousBlobURL);
+    clearPreload();
+    playbackStatus("This song is not saved on this device. Choose a song from Downloads.");
+    syncPlaybackUI();
+    return false;
   }
+  let src = song.src;
+  if (currentUsesLocal) {
+    if (preparedTrack?.src === song.src && preparedTrack.blobURL) {
+      activeBlobURL = preparedTrack.blobURL;
+      preparedTrack.blobURL = null; // Ownership moves to the main audio element.
+    } else activeBlobURL = URL.createObjectURL(local.blob);
+    src = activeBlobURL;
+  }
+  clearPreload();
+  loadedSongSrc = song.src;
+  DOM.cover.src = song.cover || COVER;
+  const titleSpan = document.createElement("span");
+  titleSpan.textContent = song.title;
+  titleSpan.dataset.title = song.title;
+  DOM.title.replaceChildren(titleSpan);
+  DOM.cover.classList.add("loading");
+  playbackStatus(currentUsesLocal ? "Saved on this device" : "Loading stream…");
+  updateMediaSession();
+  updateMarquee();
+  const ready = await new Promise(resolve => {
+    function finish(ok) {
+      DOM.audio.removeEventListener("loadedmetadata", onReady);
+      DOM.audio.removeEventListener("error", onError);
+      if (cancelPendingLoad === cancel) cancelPendingLoad = null;
+      resolve(ok);
+    }
+    const onReady = () => finish(true);
+    const onError = () => finish(false);
+    const cancel = () => finish(false);
+    cancelPendingLoad = cancel;
+    DOM.audio.addEventListener("loadedmetadata", onReady);
+    DOM.audio.addEventListener("error", onError);
+    DOM.audio.preload = "auto";
+    DOM.audio.src = src;
+    if (previousBlobURL) URL.revokeObjectURL(previousBlobURL);
+    // Starting playback does not depend on a metadata callback or background timer.
+    DOM.audio.load();
+  });
+  if (!ready || sequence !== loadSequence) return false;
+  if (Number.isFinite(resumeTime) && resumeTime > 0) {
+    const duration = DOM.audio.duration;
+    DOM.audio.currentTime = Number.isFinite(duration)
+      ? Math.min(resumeTime, Math.max(0, duration - 0.1)) : resumeTime;
+  }
+  updateTime();
+  savePlaybackPosition();
+  syncPlaybackUI();
+  highlightActiveTrack();
+  return true;
+}
+
+// Issue play synchronously after assigning src, including from the ended event.
+async function startTrack(index, resumeTime = 0) {
+  STATE.currentIndex = index;
+  const ready = loadSong(resumeTime);
+  const playing = playSong();
+  saveState();
+  const loaded = await ready;
+  await playing;
+  return loaded;
 }
 
 /* ===== SILENT BACKGROUND CACHE ===== */
 async function silentCacheSong(song) {
 
   // skip if already downloaded
-  if (STATE.downloadedSongs[song.src]) return;
+  if (hasSavedAudio(STATE.downloadedSongs[song.src])) return;
 
   try {
 
     const existing = await getSongFromDB(song.src);
-    if (existing) return;
+    if (hasSavedAudio(existing)) {
+      STATE.downloadedSongs[song.src] = existing;
+      return;
+    }
 
     const response = await fetch(song.src, {
       mode: "cors",
       cache: "no-cache"
     });
 
-    if (!response.ok) return;
+    if (response.status !== 200) return;
 
     // bail if user skipped away from this song while fetching
     if (STATE.songs[STATE.currentIndex] !== song) return;
@@ -1069,10 +1111,16 @@ async function silentCacheSong(song) {
 
 /* ===== PLAY SONG ===== */
 function playSong() {
-
-  DOM.audio.play()
+  const song = STATE.songs[STATE.currentIndex];
+  if (!song || loadedSongSrc !== song.src) return Promise.resolve(false);
+  // A user pressing Play after a network failure should retry the source.
+  if (DOM.audio.error) return startTrack(STATE.currentIndex, DOM.audio.currentTime);
+  const sequence = loadSequence;
+  wantsPlayback = true;
+  return DOM.audio.play()
 
     .then(() => {
+      if (sequence !== loadSequence) return false;
 
       DOM.playBtn.innerHTML =
         '<i class="fas fa-pause"></i>';
@@ -1081,7 +1129,7 @@ function playSong() {
 
       DOM.cover.classList.add("playing");
 
-      setTimeout(preloadNextTrack, 200);
+      preloadNextTrack();
 
       savePlaybackState(true);
 
@@ -1104,7 +1152,10 @@ function playSong() {
     })
 
     .catch(err => {
-
+      if (sequence !== loadSequence || err.name === "AbortError") return false;
+      playbackStatus(err.name === "NotAllowedError"
+        ? "Tap Play to continue. Your browser paused automatic playback."
+        : "Playback stopped. Check your connection or choose a saved song in Downloads.");
       console.error("Playback failed", err);
 
       DOM.playBtn.innerHTML =
@@ -1120,6 +1171,7 @@ function playSong() {
 
 /* ===== PLAY SONG ===== */
 function pauseSong(){
+  wantsPlayback = false;
 
   DOM.audio.pause();
 
@@ -1137,65 +1189,74 @@ function pauseSong(){
   }
 }
 
-/* ===== MEDIA SESSION ===== */
+/* ===== MEDIA SESSION AND BACKGROUND CONTROLS ===== */
+function syncPlaybackUI() {
+  const playing = !DOM.audio.paused && !DOM.audio.ended;
+  DOM.playBtn.innerHTML = playing ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+  DOM.playBtn.classList.toggle("pause", playing);
+  DOM.cover.classList.toggle("playing", playing);
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+}
+function updateMediaPosition() {
+  if (!navigator.mediaSession?.setPositionState || !Number.isFinite(DOM.audio.duration) || DOM.audio.duration <= 0) return;
+  try {
+    navigator.mediaSession.setPositionState({ duration: DOM.audio.duration,
+      position: Math.max(0, Math.min(DOM.audio.currentTime, DOM.audio.duration)), playbackRate: DOM.audio.playbackRate || 1 });
+  } catch (err) { console.debug("Media position unavailable", err); }
+}
 function updateMediaSession() {
-
   if (!("mediaSession" in navigator)) return;
-
   const song = STATE.songs[STATE.currentIndex];
   if (!song) return;
-
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: song.title,
-    artist: "AlatiphA",
-    album: "AlatiphA Music",
-    artwork: [
-      { src: song.cover || COVER, sizes: "500x500", type: "image/png" }
-    ]
+  if (typeof MediaMetadata !== "undefined") navigator.mediaSession.metadata = new MediaMetadata({
+    title: song.title, artist: "AlatiphA", album: "AlatiphA Music",
+    artwork: [{ src: "icon-512.png", sizes: "512x512", type: "image/png" }]
   });
-
-  navigator.mediaSession.setActionHandler("play", () => {
-    playSong();
+  const actions = {
+    play: playSong, pause: pauseSong, previoustrack: prevSong, nexttrack: nextSong,
+    seekto: details => { if (Number.isFinite(details.seekTime)) DOM.audio.currentTime = Math.max(0, Math.min(details.seekTime, DOM.audio.duration || 0)); },
+    seekbackward: details => { DOM.audio.currentTime = Math.max(0, DOM.audio.currentTime - (details.seekOffset || 10)); },
+    seekforward: details => { DOM.audio.currentTime = Math.min(DOM.audio.duration || 0, DOM.audio.currentTime + (details.seekOffset || 10)); }
+  };
+  Object.entries(actions).forEach(([action, handler]) => {
+    try { navigator.mediaSession.setActionHandler(action, handler); }
+    catch (err) { console.debug("Media action unavailable", action); }
   });
-
-  navigator.mediaSession.setActionHandler("pause", () => {
-    pauseSong();
-  });
-
-  navigator.mediaSession.setActionHandler("previoustrack", () => {
-    prevSong();
-  });
-
-  navigator.mediaSession.setActionHandler("nexttrack", () => {
-    nextSong();
-  });
-
-  navigator.mediaSession.setActionHandler("seekto", (details) => {
-    if (details.seekTime !== undefined) {
-      DOM.audio.currentTime = details.seekTime;
+  updateMediaPosition();
+}
+function nextSong() { return advanceTrack("next"); }
+function prevSong() { return advanceTrack("prev"); }
+function advanceTrack(direction) {
+  const index = getNextIndex(direction);
+  if (index === null) {
+    if (direction === "next") {
+      pauseSong();
+      playbackStatus(navigator.onLine === false ? "End of saved songs. Enable Repeat all to keep listening." : "End of playlist.");
     }
-  });
+    return Promise.resolve(false);
+  }
+  return startTrack(index);
 }
-
-/* ===== NEXT SONG ===== */
-async function nextSong(){
-  STATE.currentIndex =
-    (STATE.currentIndex + 1) % STATE.songs.length;
-
-  saveState();
-  await loadSong();
-  playSong();
-}
-
-/* ===== PREVIOUS SONG ===== */
-async function prevSong(){
-  STATE.currentIndex =
-    (STATE.currentIndex - 1 + STATE.songs.length) % STATE.songs.length;
-
-  saveState();
-  await loadSong();
-  playSong();
-}
+DOM.audio.addEventListener("playing", () => {
+  syncPlaybackUI();
+  DOM.cover.classList.remove("loading");
+  playbackStatus(currentUsesLocal ? "Playing from this device" : "Streaming");
+});
+DOM.audio.addEventListener("pause", syncPlaybackUI);
+DOM.audio.addEventListener("canplay", () => DOM.cover.classList.remove("loading"));
+DOM.audio.addEventListener("waiting", () => playbackStatus("Buffering…"));
+DOM.audio.addEventListener("timeupdate", updateMediaPosition);
+DOM.audio.addEventListener("error", () => {
+  if (updatePlayback || !loadedSongSrc) return;
+  DOM.cover.classList.remove("loading");
+  syncPlaybackUI();
+  const local = STATE.downloadedSongs[loadedSongSrc];
+  if (!currentUsesLocal && hasSavedAudio(local) && wantsPlayback) {
+    startTrack(STATE.currentIndex, DOM.audio.currentTime);
+  } else playbackStatus(currentUsesLocal
+    ? "This saved song could not play. Download it again when online."
+    : "Connection lost or song unavailable. Choose a saved song in Downloads.");
+});
 
 /* ===== UPDATE REPEAT BUTTON ===== */
 function updateRepeatButton() {
@@ -1219,23 +1280,17 @@ function updateRepeatButton() {
 
 /* ===== PRELOAD NEXT TRACK ===== */
 function preloadNextTrack() {
-
-  const nextIndex = getNextIndex("next");
-  if (nextIndex === null) return;
-
-  const nextSong = STATE.songs[nextIndex];
-  if (!nextSong) return;
-
-  if (STATE.nextBufferAudio.src === nextSong.src) return;
-
-  STATE.nextSongIndex = nextIndex;
-
-  STATE.nextBufferAudio.src = nextSong.src;
-  STATE.nextBufferAudio.load();
-
-  // Fetch ahead without playing a second audio element.
+  const index = getNextIndex("next");
+  const song = index === null ? null : STATE.songs[index];
+  if (!song) { clearPreload(); return; }
+  const local = STATE.downloadedSongs[song.src];
+  if (preparedTrack?.src === song.src && (!!preparedTrack.blobURL === hasSavedAudio(local))) return;
+  clearPreload();
+  const blobURL = hasSavedAudio(local) ? URL.createObjectURL(local.blob) : null;
+  preparedTrack = { src: song.src, index, blobURL };
   STATE.nextBufferAudio.preload = "auto";
-
+  STATE.nextBufferAudio.src = blobURL || song.src;
+  STATE.nextBufferAudio.load();
 }
 
 /* ===== SAVE STATE ===== */
@@ -1303,18 +1358,19 @@ div.innerHTML = `
 
   if (e.target.closest(".heart")) return;
 
+  if (navigator.onLine === false && !isOfflineAvailable(i)) {
+    playbackStatus("This song is not saved. Choose a song from Downloads.");
+    return;
+  }
+  capturePlaybackQueue();
+  clearPreload();
   if (STATE.currentIndex === i) {
     // toggle play/pause instead
     DOM.audio.paused ? playSong() : pauseSong();
     return;
   }
 
-  STATE.currentIndex = i;
-
-  await loadSong();
-  playSong();
-  highlightActiveTrack();
-  saveState();
+  await startTrack(i);
 };
 
     // favorite
@@ -1593,7 +1649,7 @@ async function renderDownloads() {
 
     DOM.list.innerHTML = "";
 
-    if (!downloads.length) {
+    if (!Object.values(STATE.downloadedSongs).some(hasSavedAudio)) {
 
       DOM.list.innerHTML =
         `<div style="padding:15px;">
@@ -1608,7 +1664,7 @@ async function renderDownloads() {
   const download =
     STATE.downloadedSongs[song.src];
 
-  if (!download) return;
+  if (!hasSavedAudio(download)) return;
 
       const div = document.createElement("div");
 
@@ -1642,16 +1698,17 @@ async function renderDownloads() {
 
   if (e.target.closest(".heart")) return;
 
+  if (navigator.onLine === false && !isOfflineAvailable(originalIndex)) {
+    playbackStatus("This song is not saved. Choose a song from Downloads.");
+    return;
+  }
+  capturePlaybackQueue();
+  clearPreload();
   if (STATE.currentIndex === originalIndex) {
     DOM.audio.paused ? playSong() : pauseSong();
     return;
   }
-  STATE.currentIndex = originalIndex;
-
-  await loadSong();
-  playSong();
-  highlightActiveTrack();
-  saveState();
+  await startTrack(originalIndex);
 };
 
       // FAVORITE
@@ -1845,7 +1902,7 @@ function showAbout() {
 /* 🔥 SOURCE OF TRUTH FOR NAVIGATION */
 function getNextIndex(direction = "next") {
 
-  const playlist = getCurrentPlaylist();
+  const playlist = getPlaybackPlaylist();
   if (!playlist.length) return null;
 
   let currentPos = playlist.findIndex(
@@ -1862,14 +1919,15 @@ function getNextIndex(direction = "next") {
   }
 
   // REPEAT ONE
-  if (STATE.repeat === "one") {
+  if (STATE.repeat === "one" && playlist.some(item => item.index === STATE.currentIndex)) {
     return STATE.currentIndex;
   }
 
   // SHUFFLE
   if (STATE.shuffle) {
+    if (direction === "next" && preparedTrack && playlist.some(item => item.index === preparedTrack.index)) return preparedTrack.index;
 
-    if (playlist.length === 1) return STATE.currentIndex;
+    if (playlist.length === 1) return playlist[0].index;
 
     let newPos;
 
@@ -2038,7 +2096,7 @@ function isDownloaded(index) {
   if (!song) return false;
 
   const entry = STATE.downloadedSongs[song.src];
-  return !!(entry && entry.isRealDownload);
+  return hasSavedAudio(entry) && !!entry.isRealDownload;
 }
 
 // True for a REAL download OR a silently cached song —
@@ -2051,7 +2109,7 @@ function isOfflineAvailable(index) {
   const song = STATE.songs[index];
   if (!song) return false;
 
-  return !!STATE.downloadedSongs[song.src];
+  return hasSavedAudio(STATE.downloadedSongs[song.src]);
 }
 
 async function loadDownloadedSongsMap() {
@@ -2063,7 +2121,7 @@ async function loadDownloadedSongsMap() {
     STATE.downloadedSongs = {};
 
     downloads.forEach(item => {
-      STATE.downloadedSongs[item.id] = item;
+      if (hasSavedAudio(item)) STATE.downloadedSongs[item.id] = item;
     });
 
   } catch (err) {
@@ -2072,6 +2130,12 @@ async function loadDownloadedSongsMap() {
   }
 }
 
+
+window.addEventListener("offline", () => {
+  clearPreload(); preloadNextTrack();
+  if (!currentUsesLocal && loadedSongSrc) playbackStatus("Offline. The current stream may stop; saved songs remain available in Downloads.");
+});
+window.addEventListener("online", () => { clearPreload(); preloadNextTrack(); });
 
 // =======================
 // SWIPE GESTURES
@@ -2134,26 +2198,8 @@ function handleSwipe(timeTaken) {
 
     if (absX > minDistance || isFast) {
 
-      if (dx < 0) {
-
-  const nextIndex = getNextIndex("next");
-
-  if (nextIndex === null) return;
-
-  STATE.currentIndex = nextIndex;
-
-} else {
-
-  const prevIndex = getNextIndex("prev");
-
-  if (prevIndex === null) return;
-
-  STATE.currentIndex = prevIndex;
-}
-
-saveState();
-loadSong().then(playSong);
-highlightActiveTrack();     
+      if (dx < 0) nextSong();
+      else prevSong();
     }
   }
 
@@ -2192,38 +2238,9 @@ DOM.playBtn.onclick = () => {
   DOM.audio.paused ? playSong() : pauseSong();
 };
 
-//NEXT BUTTON 
-document.getElementById("next").onclick = async () => {
-
-  const nextIndex = getNextIndex("next");
-
-  if (nextIndex === null) {
-    pauseSong();
-    return;
-  }
-
-  STATE.currentIndex = nextIndex;
-
-  await loadSong();
-  playSong();
-  highlightActiveTrack();
-  saveState();
-};
-
-//PREVIOUS BUTTON  
-document.getElementById("prev").onclick = async () => {
-
-  const prevIndex = getNextIndex("prev");
-
-  if (prevIndex === null) return;
-
-  STATE.currentIndex = prevIndex;
-
-  await loadSong();
-  playSong();
-  highlightActiveTrack();
-  saveState();
-};
+// On-screen and lock-screen buttons share one playback queue.
+document.getElementById("next").onclick = nextSong;
+document.getElementById("prev").onclick = prevSong;
 
 DOM.clearBtn.onclick = () => {
 
@@ -2242,53 +2259,12 @@ setTimeout(() => {
 
 DOM.audio.addEventListener("timeupdate", updateTime);
 
-//AUDIO
-DOM.audio.addEventListener("ended", async function () {
-
-  // REPEAT ONE
+// Track transitions issue play immediately, without waiting on UI work or timers.
+DOM.audio.addEventListener("ended", () => {
   if (STATE.repeat === "one") {
-
     DOM.audio.currentTime = 0;
     playSong();
-    return;
-  }
-
-  const nextIndex = getNextIndex("next");
-
-  // END OF PLAYLIST
-  if (nextIndex === null) {
-
-    // repeat all fallback
-    if (STATE.repeat === "all") {
-
-      const playlist = getCurrentPlaylist();
-
-      if (playlist.length) {
-
-        STATE.currentIndex = playlist[0].index;
-
-        await loadSong();
-        playSong();
-        highlightActiveTrack();
-        saveState();
-      }
-    }
-
-    else {
-
-      pauseSong();
-      DOM.audio.currentTime = 0;
-    }
-
-    return;
-  }
-
-  STATE.currentIndex = nextIndex;
-
-  await loadSong();
-  playSong();
-  highlightActiveTrack();
-  saveState();
+  } else nextSong();
 });
 
 // MENU
@@ -2407,6 +2383,8 @@ DOM.shuffleBtn.onclick = () => {
 
   localStorage.setItem("shuffle", STATE.shuffle);
 
+  clearPreload();
+  preloadNextTrack();
   updateShuffleButton();
   
 };
@@ -2426,6 +2404,8 @@ DOM.repeatBtn.onclick = () => {
 
   localStorage.setItem("repeat", STATE.repeat);
 
+  clearPreload();
+  preloadNextTrack();
   updateRepeatButton();
 };
 
@@ -2507,7 +2487,8 @@ DOM.menuDownload.onclick = async () => {
     // already a REAL download?
     const existing = await getSongFromDB(song.src);
 
-    if (existing && existing.isRealDownload) {
+    const needsRepair = loadedSongSrc === song.src && !!DOM.audio.error;
+    if (hasSavedAudio(existing) && existing.isRealDownload && !needsRepair) {
 
       alert("Song already downloaded");
 
@@ -2520,7 +2501,7 @@ DOM.menuDownload.onclick = async () => {
     let blob;
 
     // reuse silently cached blob if we already have it — avoids re-fetching
-    if (existing && existing.blob) {
+    if (hasSavedAudio(existing) && !needsRepair) {
 
       blob = existing.blob;
 
@@ -2532,7 +2513,7 @@ DOM.menuDownload.onclick = async () => {
         cache: "no-cache"
       });
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(
           "Server blocked download or file unavailable"
         );
@@ -2570,6 +2551,8 @@ DOM.menuDownload.onclick = async () => {
 
     // REFRESH MEMORY MAP
     await loadDownloadedSongsMap();
+
+    if (needsRepair) await loadSong(DOM.audio.currentTime);
 
     // SAVE ACTUAL FILE TO DEVICE DOWNLOADS FOLDER
     saveBlobToDeviceDownloads(blob, song.title);
